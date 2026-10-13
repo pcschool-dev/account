@@ -11,10 +11,21 @@
     และหน้านี้ส่งพารามิเตอร์ทั้งหมด (?from= ?u= ?v= ?code= ?state=) ต่อให้แอป — ลิงก์อีเมลและ LINE จึงกลับมาที่หน้านี้ได้
     ค่าเดียวที่ต้องแก้: EXEC_URL = URL /exec ของระบบกลางหลัง deploy
   -->
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com">
   <script src="https://accounts.google.com/gsi/client" async onload="window.gReady && window.gReady()"></script>
   <style>
     html, body { margin: 0; height: 100%; background: #f3f6fb; }
-    #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+    #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity .25s; }
+    #app.ready { opacity: 1; }
+    /* หน้ากำลังโหลด: แสดงระหว่างรอระบบกลาง (Apps Script) ตอบ 3-5 วินาที แทนจอว่าง — กรอบโหลดเสร็จแล้วจางทับ */
+    #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      color: #475569; font: 15px/1.5 'Sarabun', system-ui, -apple-system, 'Segoe UI', sans-serif; text-align: center; padding: 16px; }
+    #boot .sp { width: 38px; height: 38px; border-radius: 50%; border: 3px solid #d6deea; border-top-color: #2c5282; animation: bootspin .8s linear infinite; }
+    #boot .t1 { font-weight: 600; color: #1e293b; font-size: 16px; }
+    #boot .t2 { font-size: 13px; color: #64748b; }
+    @keyframes bootspin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #boot .sp { animation-duration: 2s; } #app { transition: none; } }
     #gfloat { display: none; position: fixed; z-index: 5; align-items: center; justify-content: center; background: #fff; border-radius: 999px; }
     #gfloat.on { display: flex; }
     #gfb { width: 100%; height: 40px; border: 1px solid #dadce0; border-radius: 999px; background: #fff; color: #3c4043;
@@ -23,12 +34,18 @@
   </style>
 </head>
 <body>
+  <div id="boot" role="status" aria-live="polite"><div class="sp"></div><div class="t1">กำลังเปิดหน้าเข้าสู่ระบบ…</div><div class="t2">บัญชีผู้ใช้ โรงเรียนปากช่อง</div></div>
   <iframe id="app" title="บัญชีผู้ใช้ โรงเรียนปากช่อง" allow="clipboard-write"></iframe>
   <div id="gfloat" role="region" aria-label="ยืนยันตัวตนด้วย Google"><div id="gbtn"></div><button type="button" id="gfb" style="display:none"></button></div>
   <script>
     var EXEC_URL = 'https://script.google.com/macros/s/AKfycby_1PlF-C7Zr9m6tCrAMReA3JwGqveC1G62ip_1oeO70Kb16yc1anCmIVHZkuRe5vjB/exec';
     var link = document.getElementById('app');
     // ส่งทุกพารามิเตอร์ต่อให้แอป (ลิงก์จากอีเมล ?v= และที่ LINE พากลับ ?code=&state= มาที่หน้านี้)
+    // แสดงกรอบเมื่อแอปวาดหน้าแรกเสร็จ (แอปส่ง {tes:'auth'} ทุกครั้งที่ render — ดูตัวรับ message ข้างล่าง)
+    // กันค้าง: โหลดกรอบเสร็จแล้ว 6 วินาที หรือเกิน 15 วินาทีนับจากเปิดหน้า แสดงเลย
+    function showApp() { link.classList.add('ready'); }
+    link.addEventListener('load', function () { setTimeout(showApp, 6000); });
+    setTimeout(showApp, 15000);
     link.src = EXEC_URL + (location.search || '');
 
     /* ---- ปุ่ม Google: ชุดเดียวกับหน้าครอบของระบบอื่น (skill pcschool-google-login / wrapper-snippet) ---- */
@@ -93,6 +110,7 @@
       var d = ev.data;
       if (!d || (d.tes !== 'auth' && d.tes !== 'gslot') || !/\.googleusercontent\.com$/.test(String(ev.origin))) return;
       gApp = ev.source; gOrigin = ev.origin;
+      showApp();
       if (d.tes === 'gslot') { gRect = d.rect || null; gPlace(); return; }
       if (d.state === 'login') {
         gWant = true;
